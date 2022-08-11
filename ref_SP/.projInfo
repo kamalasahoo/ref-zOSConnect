@@ -1,9 +1,0 @@
-#Thu Aug 11 14:55:46 IST 2022
-generateSchema=false
-ConnectionName=SEVOL0D2D20H00
-useridCurrentSchema=false
-currentPath=SYSIBM,SYSFUN,SYSPROC,V0V542D
-currentSchema=V0V542D
-buildOwner=V0V542D
-packageOwner=V0V542D
-ProjectAnnotation=SEVOL0D2D20H00\:jdbc\:db2\://SD01.IT.VOLVO.COM\:446/SEVOL0D2D20H00\:retrieveMessagesFromServerOnGetMessage\=true;emulateParameterMetaDataForZCalls\=1;
