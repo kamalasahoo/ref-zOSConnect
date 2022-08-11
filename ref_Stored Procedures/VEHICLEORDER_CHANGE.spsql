@@ -1,0 +1,204 @@
+CREATE PROCEDURE VEHICLEORDER_CHANGE
+                                    (                          
+                                     IN ORDER_NO INTEGER          
+                                    ,IN BUSAREA CHAR(10)          
+                                    ,IN MODEL_ID CHAR(20)         
+                                    ,IN ORDER_TYPE CHAR(20)       
+                                    ,IN CHASSIS_NO CHAR(10)       
+                                    ,IN VIN CHAR(20)              
+                                    ,IN ORDER_QTY INTEGER         
+                                    ,IN ORDER_COST DECIMAL(11,2)  
+                                    ,IN ACT_DELIVERY_DATE CHAR(10)
+                                    ,IN STATUS CHAR(15)           
+                                    ,OUT RETURN_CODE CHAR(4)      
+                                    ,OUT REASON_CODE CHAR(100)    
+                                    )
+                    VERSION V1
+                    ISOLATION LEVEL CS                                                      
+                    RESULT SETS 1                                                           
+                    LANGUAGE SQL                                                            
+P1: BEGIN
+ 
+--  CHANGE HISTORY
+--  15/06/2022    Initial Version
+    
+    DECLARE SQLCODE                     INTEGER DEFAULT 0;
+    DECLARE V_SQLCODE                   INTEGER DEFAULT 0;
+    
+    DECLARE PROCEED                     CHAR(01) DEFAULT 'N';
+    DECLARE OTHERVL                     CHAR(01) DEFAULT 'Y';
+    
+    DECLARE H_BUSAREA                   CHAR(10) DEFAULT ' ';
+    DECLARE H_MODEL_ID                  CHAR(20) DEFAULT ' ';
+    DECLARE H_ORDER_TYPE                CHAR(20) DEFAULT ' ';
+    DECLARE H_CHASSIS_NO                CHAR(10) DEFAULT ' ';
+    DECLARE H_VIN                       CHAR(20) DEFAULT ' ';
+    DECLARE H_ORDER_NO                  INTEGER DEFAULT 0;
+    DECLARE H_ORDER_QTY                 INTEGER; 
+    DECLARE H_ORDER_COST                DECIMAL(11,2);
+    DECLARE H_ACT_DELIVERY_DATE         CHAR(10);
+    DECLARE H_ACT_DELIVERY_DATE_NULL    CHAR(10);
+    DECLARE H_STATUS                    CHAR(15);
+    DECLARE H_DAYS                      SMALLINT DEFAULT 0;
+    
+    DECLARE CONTINUE HANDLER FOR SQLEXCEPTION, SQLWARNING, NOT FOUND
+        SET V_SQLCODE = SQLCODE;
+    
+    
+--  Initialize value
+    SET RETURN_CODE = '0';
+    SET REASON_CODE = 'Update Successful';
+--  if order number is provided then the update process wont check any other parameter.
+--  if Order number is not provided then at least business area, model id,order type,  
+--  chassis number, and VIN number should be provided.  
+    
+    IF (ORDER_NO > 0) THEN
+        SET H_ORDER_NO = ORDER_NO;
+        SET PROCEED = 'Y';
+    END IF;
+                                                      
+    IF (BUSAREA > ' ' 
+        AND MODEL_ID > ' '
+        AND ORDER_TYPE > ' '
+        AND CHASSIS_NO > ' '
+        AND VIN > ' ') THEN
+        SET PROCEED = 'Y';
+        SET H_BUSAREA = BUSAREA;
+        SET H_ORDER_TYPE = ORDER_TYPE;
+        SET H_MODEL_ID = MODEL_ID;
+        SET H_CHASSIS_NO = CHASSIS_NO;
+        SET H_VIN = VIN;
+    END IF;
+    
+    IF (PROCEED = 'N') THEN
+        SET RETURN_CODE = '9000';
+        SET REASON_CODE = 'Required inputs are not provided for update';
+    END IF;
+    
+    IF (PROCEED = 'Y') THEN
+        IF (ORDER_NO > 0) THEN
+            SET OTHERVL = 'N';
+        ELSE
+            SET OTHERVL = 'Y';
+        END IF;         
+    END IF;
+    
+-- Verifying the input for update
+    IF (PROCEED = 'Y') THEN
+        SET V_SQLCODE = 0;
+        IF (OTHERVL = 'N') THEN
+            SELECT ORDER_QTY, ORDER_COST, STATUS, ACT_DELIVERY_DATE
+              INTO H_ORDER_QTY
+                  ,H_ORDER_COST
+                  ,H_STATUS
+                  ,H_ACT_DELIVERY_DATE
+              FROM VEHICLE_ORDER                           
+             WHERE ORDER_NO = H_ORDER_NO             
+               AND STATUS IN                               
+                   ('ORDERED', 'PROCESSED', 'IN-TRANSIT');
+        ELSE
+            SELECT ORDER_QTY, ORDER_COST, STATUS, ACT_DELIVERY_DATE
+              INTO H_ORDER_QTY
+                  ,H_ORDER_COST
+                  ,H_STATUS
+                  ,H_ACT_DELIVERY_DATE
+              FROM VEHICLE_ORDER                           
+             WHERE BUSAREA = H_BUSAREA   
+               AND MODEL_ID = H_MODEL_ID  
+               AND ORDER_TYPE = H_ORDER_TYPE
+               AND CHASSIS_NO = H_CHASSIS_NO 
+               AND VIN = H_VIN            
+               AND STATUS IN                               
+                   ('ORDERED', 'PROCESSED', 'IN-TRANSIT');  
+        END IF;         
+        
+        IF (V_SQLCODE = 0) THEN
+            IF (ORDER_QTY > 0
+                AND ORDER_QTY <> H_ORDER_QTY) THEN
+                SET H_ORDER_QTY = ORDER_QTY;
+            END IF; 
+--
+            IF (ORDER_COST > 0
+                AND ORDER_COST <> H_ORDER_COST) THEN
+                SET H_ORDER_COST = ORDER_COST;
+            END IF; 
+--
+            IF (STATUS > ' '
+                AND STATUS <> H_STATUS) THEN
+                SET H_STATUS = STATUS;
+            END IF;
+--
+            IF (ACT_DELIVERY_DATE > ' ') THEN
+                SELECT DAYS(DATE(ACT_DELIVERY_DATE))
+                        -   DAYS(CURRENT DATE)
+                  INTO H_DAYS
+                  FROM SYSIBM.SYSDUMMY1;
+                
+                IF (V_SQLCODE = 0) THEN
+                    IF (H_DAYS <= 0) THEN
+                        SET H_ACT_DELIVERY_DATE = ACT_DELIVERY_DATE;
+                    ELSE
+                        SET RETURN_CODE = '9020';
+                        SET REASON_CODE = 'Actual Delivery Date should be current day or earlier days';
+                        SET PROCEED = 'N';
+                    END IF; 
+                ELSEIF (V_SQLCODE = -181) THEN
+                        SET RETURN_CODE = '9181';
+                        SET REASON_CODE = 'Actual Delivery date is not in format YYYY-MM-DD or MM/DD/YYYY';
+                        SET PROCEED = 'N';
+                ELSE
+                    SET RETURN_CODE = '9999';
+                    SET REASON_CODE = CONCAT('Actual Delivery date check failed',CHAR(V_SQLCODE));
+                    SET PROCEED = 'N';
+                END IF; 
+           END IF;                     
+        ELSEIF (V_SQLCODE = +100) THEN
+            SET RETURN_CODE = '9100';
+            SET REASON_CODE = 'Provided input is incorrect or order status is not allowing update';
+            SET PROCEED = 'N';
+        ELSE
+            SET RETURN_CODE = '9999';
+            SET REASON_CODE = CONCAT('Required Order fetch failed with sqlcode:', CHAR(V_SQLCODE));
+            SET PROCEED = 'N';
+        END IF;
+    END IF;
+    
+    IF (PROCEED = 'Y') THEN
+        SET V_SQLCODE = 0;
+        IF (OTHERVL = 'N') THEN
+            UPDATE VEHICLE_ORDER                             
+               SET ORDER_QTY         = H_ORDER_QTY     
+                  ,ORDER_COST        = H_ORDER_COST    
+                  ,STATUS            = H_STATUS        
+                  ,ACT_DELIVERY_DATE = H_ACT_DELIVERY_DATE                       
+                  ,UPDATED_BY        = 'WLZCD1AS'            
+                  ,UPDATE_TIMESTAMP  = CURRENT TIMESTAMP     
+            WHERE ORDER_NO = H_ORDER_NO                
+              AND STATUS IN                                  
+                  ('ORDERED', 'PROCESSED', 'IN-TRANSIT');     
+        ELSE
+             UPDATE VEHICLE_ORDER                         
+                SET ORDER_QTY           = H_ORDER_QTY         
+                   ,ORDER_COST          = H_ORDER_COST     
+                   ,STATUS              = H_STATUS                
+                   ,ACT_DELIVERY_DATE   = H_ACT_DELIVERY_DATE                  
+                   ,UPDATED_BY          = 'WLZCD1AS'               
+                   ,UPDATE_TIMESTAMP    = CURRENT TIMESTAMP
+             WHERE BUSAREA    = H_BUSAREA           
+               AND MODEL_ID   = H_MODEL_ID          
+               AND ORDER_TYPE = H_ORDER_TYPE        
+               AND CHASSIS_NO = H_CHASSIS_NO        
+               AND VIN        = H_VIN               
+               AND STATUS IN                              
+               ('ORDERED', 'PROCESSED', 'IN-TRANSIT');     
+        END IF;
+        
+        IF (V_SQLCODE = 0) THEN
+            SET RETURN_CODE = '0';
+            SET REASON_CODE = 'Update Successful';
+        ELSE
+            SET RETURN_CODE = '9999';
+            SET REASON_CODE = CONCAT('Update Failed with SQLCODE:',CHAR(V_SQLCODE));
+        END IF;
+    END IF;                                                                                                                 
+END P1

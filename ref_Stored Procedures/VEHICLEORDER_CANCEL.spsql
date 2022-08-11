@@ -1,0 +1,137 @@
+CREATE PROCEDURE VEHICLEORDER_CANCEL
+                                    (                          
+                                      IN ORDER_NO INTEGER       
+                                     ,IN BUSAREA CHAR(10)       
+                                     ,IN MODEL_ID CHAR(20)      
+                                     ,IN ORDER_TYPE CHAR(20)    
+                                     ,IN CHASSIS_NO CHAR(10)    
+                                     ,IN VIN CHAR(20)           
+                                     ,OUT RETURN_CODE CHAR(4)   
+                                     ,OUT REASON_CODE CHAR(100) 
+                                     )
+                 VERSION V1
+                 ISOLATION LEVEL CS                                                      
+                 LANGUAGE SQL                                                            
+ P1: BEGIN
+--  CHANGE HISTORY
+--  15/06/2022    Initial Version
+    
+    DECLARE SQLCODE                     INTEGER DEFAULT 0;
+    DECLARE V_SQLCODE                   INTEGER DEFAULT 0;
+    
+    DECLARE PROCEED                     CHAR(01) DEFAULT 'N';
+    DECLARE OTHERVL                     CHAR(01) DEFAULT 'Y';
+    
+    DECLARE H_ORDER_NO                  INTEGER DEFAULT 0;
+    DECLARE H_BUSAREA                   CHAR(10) DEFAULT ' ';
+    DECLARE H_MODEL_ID                  CHAR(20) DEFAULT ' ';
+    DECLARE H_ORDER_TYPE                CHAR(20) DEFAULT ' ';
+    DECLARE H_CHASSIS_NO                CHAR(10) DEFAULT ' ';
+    DECLARE H_VIN                       CHAR(20) DEFAULT ' ';
+    DECLARE H_STATUS                    CHAR(15);
+    DECLARE H_VAR                       CHAR(01) DEFAULT ' ';
+    
+    DECLARE CONTINUE HANDLER FOR SQLEXCEPTION, SQLWARNING, NOT FOUND
+            SET V_SQLCODE = SQLCODE;
+        
+--  Initialize value
+    SET RETURN_CODE = '0';
+    SET REASON_CODE = 'Order cancelled successfully';
+    
+--  if order number is provided then the cancellation process wont check any other parameter.
+--  if Order number is not provided then at least business area, model id,order type,  
+--  chassis number, and VIN number should be provided.  
+    
+    IF (ORDER_NO > 0) THEN
+        SET H_ORDER_NO = ORDER_NO;
+        SET PROCEED = 'Y';
+    END IF;
+                                                      
+    IF (BUSAREA > ' ' 
+        AND MODEL_ID > ' '
+        AND ORDER_TYPE > ' '
+        AND CHASSIS_NO > ' '
+        AND VIN > ' ') THEN
+        SET PROCEED = 'Y';
+        SET H_BUSAREA = BUSAREA;
+        SET H_ORDER_TYPE = ORDER_TYPE;
+        SET H_MODEL_ID = MODEL_ID;
+        SET H_CHASSIS_NO = CHASSIS_NO;
+        SET H_VIN = VIN;
+    END IF;
+    
+    IF (PROCEED = 'N') THEN
+        SET RETURN_CODE = '9000';
+        SET REASON_CODE = 'Valid inputs are not provided for cancellation';
+    END IF;
+    
+    IF (PROCEED = 'Y') THEN
+        IF (ORDER_NO > 0) THEN
+            SET OTHERVL = 'N';
+        ELSE
+            SET OTHERVL = 'Y';
+        END IF;         
+    END IF;
+    
+-- Verifying if order exist or not for provided input
+    IF (PROCEED = 'Y') THEN
+        SET V_SQLCODE = 0;
+        IF (OTHERVL = 'N') THEN
+            SELECT 'Y'
+              INTO H_VAR
+              FROM VEHICLE_ORDER                           
+             WHERE ORDER_NO = H_ORDER_NO             
+               AND STATUS IN                               
+                   ('ORDERED', 'PROCESSED', 'IN-TRANSIT');
+        ELSE
+            SELECT 'Y'
+              INTO H_VAR
+              FROM VEHICLE_ORDER                           
+             WHERE BUSAREA = H_BUSAREA   
+               AND MODEL_ID = H_MODEL_ID  
+               AND ORDER_TYPE = H_ORDER_TYPE
+               AND CHASSIS_NO = H_CHASSIS_NO             
+               AND STATUS IN                               
+                   ('ORDERED', 'PROCESSED', 'IN-TRANSIT');  
+        END IF;         
+        
+        IF (V_SQLCODE = 0) THEN
+           SET H_STATUS = 'CANCELLED';
+           IF (OTHERVL = 'N') THEN
+               UPDATE VEHICLE_ORDER                          
+                  SET STATUS            = H_STATUS     
+                     ,UPDATED_BY        = 'WLZCD1AS'         
+                     ,UPDATE_TIMESTAMP  = CURRENT TIMESTAMP  
+                WHERE ORDER_NO = H_ORDER_NO             
+                  AND STATUS IN                               
+                      ('ORDERED', 'PROCESSED', 'IN-TRANSIT');   
+           ELSE
+               UPDATE VEHICLE_ORDER                    
+                  SET STATUS = H_STATUS          
+                     ,UPDATED_BY = 'WLZCD1AS'          
+                     ,UPDATE_TIMESTAMP  =  CURRENT TIMESTAMP                    
+                WHERE BUSAREA    = H_BUSAREA      
+                  AND MODEL_ID   = H_MODEL_ID     
+                  AND ORDER_TYPE = H_ORDER_TYPE   
+                  AND CHASSIS_NO = H_CHASSIS_NO   
+                  AND VIN        = H_VIN          
+                  AND STATUS IN                         
+                  ('ORDERED', 'PROCESSED', 'IN-TRANSIT'); 
+           END IF;
+           
+           IF (V_SQLCODE = 0) THEN
+               SET RETURN_CODE = '0';
+               SET REASON_CODE = 'Order cancelled successfully'; 
+           ELSE
+               SET RETURN_CODE = '9999';
+               SET REASON_CODE = CONCAT('Order cancellation failed with SQLCODE:',CHAR(V_SQLCODE)); 
+           END IF;                 
+        ELSEIF (V_SQLCODE = +100) THEN
+            SET RETURN_CODE = '9100';
+            SET REASON_CODE = 'Order is not available for Cancellation';
+        ELSE
+            SET RETURN_CODE = '9999';
+            SET REASON_CODE = CONCAT('Order existence check failed with sqlcode:', CHAR(V_SQLCODE));                        
+        END IF;
+    END IF;
+ END P1

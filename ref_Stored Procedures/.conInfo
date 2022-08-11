@@ -1,0 +1,12 @@
+#Thu Aug 11 16:54:00 IST 2022
+url=jdbc\:db2\://SD01.IT.VOLVO.COM\:446/SEVOL0D2D20H00\:retrieveMessagesFromServerOnGetMessage\=true;emulateParameterMetaDataForZCalls\=1;
+driverName=com.ibm.db2.jcc.DB2Driver
+profileProviderID=org.eclipse.datatools.enablement.ibm.db2.zseries.connectionProfile
+jarList=C\:\\Program Files\\IBM\\IDzClientEA\\..\\SDPShared\\plugins\\com.ibm.datatools.db2_2.2.202.v20200623_0934\\driver\\db2jcc4.jar;C\:\\Program Files\\IBM\\IDzClientEA\\..\\SDPShared\\plugins\\com.ibm.datatools.db2_2.2.202.v20200623_0934\\driver\\db2jcc_license_cisuz.jar
+userid=a293491
+version=V12 (New Function Activated)
+databaseName=SEVOL0D2D20H00
+conName=SEVOL0D2D20H00
+driverDefinitionType=com.ibm.datatools.db2.zseries.jdbc4.driverTemplate
+driverDefinitionID=DriverDefn.com.ibm.datatools.db2.zseries.jdbc4.driverTemplate.IBM Data Server Driver for JDBC and SQLJ (JDBC 4.0) Default
+product=DB2 UDB zSeries
