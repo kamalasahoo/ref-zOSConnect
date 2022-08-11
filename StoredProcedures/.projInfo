@@ -1,9 +1,0 @@
-#Thu Aug 04 12:38:55 IST 2022
-generateSchema=false
-ConnectionName=D21H
-useridCurrentSchema=false
-currentPath=SYSIBM,SYSFUN,SYSPROC,V0V542D
-currentSchema=V0V542D
-buildOwner=V0V542D
-packageOwner=V0V542D
-ProjectAnnotation=D21H\:jdbc\:db2\://SD01.IT.VOLVO.COM\:446/SEVOL0D2D20H00\:retrieveMessagesFromServerOnGetMessage\=true;
